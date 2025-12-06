@@ -30,14 +30,60 @@ export default function Home() {
 
       // Convert to data URL for Tesseract
       const base64 = await processedImage.getBase64Async(Jimp.MIME_JPEG);
+      console.log(base64, "base64 pre");
       return base64;
     } catch (error) {
       console.error("Image preprocessing failed:", error);
       // Fallback to original image as data URL
+      console.log("failed base64 pre");
+      //
       return new Promise((resolve) => {
+        const img = new Image();
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        img.onload = () => {
+          // Set canvas dimensions to match the image
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          // Draw the image onto the canvas
+          ctx.drawImage(img, 0, 0);
+
+          // Get image data for pixel manipulation
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          // Convert to grayscale using luminance-preserving formula
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+
+            // Luminance-preserving grayscale (REC.709)
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            data[i] = gray; // red
+            data[i + 1] = gray; // green
+            data[i + 2] = gray; // blue
+            // data[i + 3] is alpha (unchanged)
+          }
+
+          // Put modified data back
+          ctx.putImageData(imageData, 0, 0);
+
+          // Convert canvas to base64 data URL
+          const base64 = canvas.toDataURL("image/png");
+          resolve(base64);
+        };
         const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onload = (e) => {
+          img.src = e.target.result;
+        };
         reader.readAsDataURL(imageFile);
+        // const reader = new FileReader();
+        // reader.onload = (e) => resolve(e.target?.result as string);
+        // reader.readAsDataURL(imageFile);
       });
     }
   }
@@ -47,6 +93,7 @@ export default function Home() {
     try {
       console.log("Starting aggressive preprocessing...");
       const processedImageDataUrl = await preprocessImage(imageFile);
+      console.log(processedImageDataUrl, "base64 pre");
 
       console.log("Starting OCR with optimized settings...");
 
